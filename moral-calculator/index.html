@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moral Calculator</title>
+<meta name="description" content="Which outcomes of a 2x2 game can a moral game sustain? Computes supported subgame perfect equilibrium outcomes across inequality and individualism of moral weights, for An Endogenous Moral Formation Game (Thomas Zhang).">
+<style>
+:root {
+  --bg: #fbfbfa; --panel: #ffffff; --fg: #1b1b1b; --muted: #5c5c5c; --rule: #e2e2df;
+  --accent: #0b4f8a; --accent-fg: #ffffff; --input: #ffffff; --focus: #7fb3e6; --err: #a4161a;
+  --plot-bg: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141414; --panel: #1c1c1c; --fg: #e9e9e7; --muted: #a3a3a0; --rule: #333331;
+    --accent: #7fb3e6; --accent-fg: #0d1b29; --input: #232323; --focus: #7fb3e6; --err: #ff8a80;
+    --plot-bg: #1c1c1c;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141414; --panel: #1c1c1c; --fg: #e9e9e7; --muted: #a3a3a0; --rule: #333331;
+  --accent: #7fb3e6; --accent-fg: #0d1b29; --input: #232323; --focus: #7fb3e6; --err: #ff8a80;
+  --plot-bg: #1c1c1c;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 28px 16px 48px; }
+h1 { font: 600 1.6rem/1.2 Georgia, "Times New Roman", serif; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0 0 22px; max-width: 760px; }
+.sub em { font-style: italic; }
+.layout { display: grid; grid-template-columns: 330px 1fr; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; }
+.panel h2 { font-size: .8rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); margin: 18px 0 8px; }
+.panel h2:first-child { margin-top: 0; }
+label { display: block; font-size: .9rem; }
+input[type=number], select { width: 100%; padding: 6px 8px; font: inherit; color: var(--fg);
+  background: var(--input); border: 1px solid var(--rule); border-radius: 5px; }
+input[type=number]:focus, select:focus { outline: 2px solid var(--focus); outline-offset: -1px; }
+.bimatrix { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.bimatrix th { font-weight: 500; color: var(--muted); padding: 3px 4px; }
+.bimatrix th.p1 { font-size: .78rem; text-align: left; white-space: nowrap; }
+.bimatrix td { padding: 4px; border: 1px solid var(--rule); }
+.cellpair { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.cellpair input { padding: 5px 4px; text-align: center; }
+.cellpair span { display: block; text-align: center; font-size: .72rem; color: var(--muted); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.row2 label span, .one label span { display: block; color: var(--muted); font-size: .8rem; margin-bottom: 2px; }
+.radio { display: flex; gap: 16px; font-size: .9rem; }
+.radio label { display: flex; align-items: center; gap: 6px; }
+button { font: inherit; cursor: pointer; border-radius: 5px; padding: 8px 14px;
+  border: 1px solid var(--rule); background: var(--input); color: var(--fg); }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
+  width: 100%; margin-top: 16px; font-weight: 600; }
+button:disabled { opacity: .55; cursor: default; }
+.status { margin-top: 10px; font-size: .85rem; color: var(--muted); min-height: 1.4em; }
+.status.err { color: var(--err); }
+progress { width: 100%; height: 6px; margin-top: 6px; }
+.plotwrap { position: relative; }
+canvas#plot { width: 100%; display: block; background: var(--plot-bg); border-radius: 4px; touch-action: none; }
+.readout { font-size: .85rem; color: var(--muted); min-height: 2.8em; margin: 8px 0 0; }
+.readout b { color: var(--fg); font-weight: 600; }
+.legend { list-style: none; padding: 0; margin: 12px 0 0; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; font-size: .88rem; }
+.legend li { display: flex; align-items: center; gap: 8px; }
+.sw { width: 14px; height: 14px; border-radius: 3px; flex: none; border: 1px solid rgba(0,0,0,.15); }
+.legend .share { color: var(--muted); font-variant-numeric: tabular-nums; }
+.tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+details { margin-top: 18px; border-top: 1px solid var(--rule); padding-top: 12px; font-size: .92rem; }
+summary { cursor: pointer; font-weight: 600; }
+details p, details li { color: var(--fg); }
+.eq { font-family: Georgia, "Times New Roman", serif; font-size: 1rem; margin: 8px 0; overflow-x: auto; }
+footer { margin-top: 28px; color: var(--muted); font-size: .8rem; }
+footer a, .home a { color: var(--accent); text-decoration: none; }
+.home { margin: 0 0 10px; font-size: .88rem; }
+.empty { color: var(--muted); font-size: .9rem; padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <p class="home"><a href="https://thomasqszhang2.github.io/">&larr; Thomas Zhang</a></p>
+  <h1>Moral Calculator</h1>
+  <p class="sub">For a 2&times;2 game and a total moral weight <i>W</i>, shows which outcomes the moral game
+  can sustain as a subgame perfect equilibrium, at every combination of inequality and individualism
+  in how moral weight is spread. Companion to <em>An Endogenous Moral Formation Game</em>
+  (Thomas Zhang). Runs entirely in your browser; nothing to install.</p>
+
+  <div class="layout">
+    <section class="panel" aria-label="Inputs">
+      <h2>Game</h2>
+      <label class="one"><span>Load a game from the paper</span>
+        <select id="preset"><option value="">Custom</option></select>
+      </label>
+      <table class="bimatrix" style="margin-top:10px" aria-label="Material payoffs">
+        <tr><th></th><th colspan="2">Player 2</th></tr>
+        <tr><th class="p1">Player 1</th><th>A</th><th>B</th></tr>
+        <tr><th>A</th>
+          <td><div class="cellpair"><div><input id="c1" type="number" step="any" value="2"><span>u&#8321;</span></div><div><input id="c2" type="number" step="any" value="2"><span>u&#8322;</span></div></div></td>
+          <td><div class="cellpair"><div><input id="d1" type="number" step="any" value="0"><span>u&#8321;</span></div><div><input id="d2" type="number" step="any" value="3"><span>u&#8322;</span></div></div></td></tr>
+        <tr><th>B</th>
+          <td><div class="cellpair"><div><input id="e1" type="number" step="any" value="3"><span>u&#8321;</span></div><div><input id="e2" type="number" step="any" value="0"><span>u&#8322;</span></div></div></td>
+          <td><div class="cellpair"><div><input id="f1" type="number" step="any" value="1"><span>u&#8321;</span></div><div><input id="f2" type="number" step="any" value="1"><span>u&#8322;</span></div></div></td></tr>
+      </table>
+
+      <h2>Moral weight</h2>
+      <label class="one"><span>Total moral weight W</span><input id="W" type="number" step="any" value="4"></label>
+
+      <h2>Grid</h2>
+      <div class="row2">
+        <label><span>Inequality from</span><input id="inelo" type="number" step="any" value="-5"></label>
+        <label><span>to</span><input id="inehi" type="number" step="any" value="5"></label>
+      </div>
+      <div class="row2" style="margin-top:6px">
+        <label><span>Individualism from</span><input id="indlo" type="number" step="any" value="-5"></label>
+        <label><span>to</span><input id="indhi" type="number" step="any" value="5"></label>
+      </div>
+      <label class="one" style="margin-top:6px"><span>Points per axis</span>
+        <select id="n"><option>50</option><option selected>100</option><option>150</option><option>200</option></select>
+      </label>
+
+      <h2>Equilibrium</h2>
+      <div class="radio" role="radiogroup">
+        <label><input type="radio" name="eq" value="0" checked> SPNE</label>
+        <label><input type="radio" name="eq" value="1"> RTC SPNE</label>
+      </div>
+
+      <button id="go" class="primary" disabled>Loading Python&hellip;</button>
+      <progress id="prog" max="1" value="0" hidden></progress>
+      <div id="status" class="status" role="status">Loading the Python engine (first visit downloads about 10&nbsp;MB, then it is cached).</div>
+    </section>
+
+    <section class="panel" aria-label="Result">
+      <div class="plotwrap">
+        <canvas id="plot" width="760" height="560" aria-label="Heatmap of supported outcomes"></canvas>
+        <div id="empty" class="empty">Set the game and press Compute.</div>
+      </div>
+      <p id="readout" class="readout">Hover over the plot to read a point.</p>
+      <ul id="legend" class="legend"></ul>
+      <div class="tools">
+        <button id="png" disabled>Download PNG</button>
+        <button id="csv" disabled>Download CSV</button>
+      </div>
+
+      <details>
+        <summary>How to read the plot</summary>
+        <p>Each cell is one split of the moral weight. Its colour lists every outcome that can be
+        sustained there: (A,A), (A,B), (B,A), (B,B), or any combination, or none.</p>
+        <p>The moral weight w<sub><i>ij</i></sub> is how much player <i>i</i> cares about player <i>j</i>'s value
+        judgment. With <i>s</i>(<i>x</i>) = 2<sup><i>x</i></sup> / (2<sup><i>x</i></sup> + 1), the paper sets</p>
+        <div class="eq">w<sub>11</sub> = W&middot;s(Ine)&middot;s(Ind), &nbsp; w<sub>21</sub> = W&middot;s(Ine)&middot;(1&minus;s(Ind)), &nbsp;
+          w<sub>12</sub> = W&middot;(1&minus;s(Ine))&middot;(1&minus;s(Ind)), &nbsp; w<sub>22</sub> = W&middot;(1&minus;s(Ine))&middot;s(Ind).</div>
+        <ul>
+          <li><b>Inequality</b> sets player&nbsp;1's share of projecting moral weight (the weight all players place on
+          player&nbsp;1's judgments): (w<sub>11</sub> + w<sub>21</sub>) / W = <i>s</i>(Ine). At 0 the shares are equal;
+          positive values favour player&nbsp;1.</li>
+          <li><b>Individualism</b> sets the share of all moral weight that players place on their own judgments:
+          (w<sub>11</sub> + w<sub>22</sub>) / W = <i>s</i>(Ind). At 0 this share is one half.</li>
+        </ul>
+        <p><b>SPNE</b> evaluates an off-path subgame by its worst equilibrium for the deviator.
+        <b>RTC SPNE</b> keeps the on-path outcome in a subgame whenever it is still an equilibrium there.</p>
+      </details>
+    </section>
+  </div>
+
+  <footer>Engine: <a href="moral_calc.py" download>moral_calc.py</a> v1.0, run in your browser with
+  Pyodide <span id="pyver"></span>. To run it locally instead:
+  <code>python3 moral_calc.py --payoffs 2 2 0 3 3 0 1 1 --W 4 --png out.png</code>.
+  &middot; <a href="https://thomasqszhang2.github.io/">Thomas Zhang</a></footer>
+  <pre id="test-output" hidden></pre>
+</main>
+
+<script type="application/json" id="engine-src">"\"\"\"Moral Calculator: a pure-Python port of the MATLAB Moral Calculator app.\n\nFor a 2x2 material game and a total moral weight W, this computes which subgame outcomes\n(A,A), (A,B), (B,A), (B,B) can be sustained as a subgame perfect equilibrium of the moral game\nat each point of an (inequality, individualism) grid, as in \"An Endogenous Moral Formation Game\".\n\nFIDELITY (what this file replicates, and how faithfully)\n-------------------------------------------------------\nSource ported: ~/papers/morality/moral_app_20260403.m (the April 2026 app build), the functions\nreached from the app's \"Generate Graph\" button:\n    weightOutcomes -> generateWeights -> supportedOutcomes\n        -> findFeasibleCornersFullSpace -> convhull -> generatePerturbedTestPoints\n        -> profDeviation -> getUtilGivenMoral, getBoundsForCDEF, possibleMoralDev\nEach Python function below names its MATLAB original. The port keeps every tolerance\n(1e-10, 1e-14, 1e-8, 2e-12, 1e-7) and the floating-point evaluation order of every expression,\nso results are meant to be bit-identical, not merely close.\n\nMATLAB primitives (checked bit-for-bit against MATLAB R2025a by verify/check_primitives.py):\n  - linspace: MATLAB's own formula, not numpy's. Identical on all 9 probe ranges.\n  - unique(...,'rows'): lexicographic sort, duplicates removed. Same semantics.\n  - convhull: same SET semantics (every boundary point kept, including points on an edge; an\n    all-collinear input raises, and the app then keeps every point), exact orientation tests.\n  - norm of a 2-vector: BLAS scaled formula, identical on 3999/4000 probe vectors.\n  - 2^x: NOT reproducible. MATLAB's own math library differs from every Python candidate by\n    +-1 ulp on ~10% of inputs (no candidate formula matched). The weights w_ij can therefore\n    differ from MATLAB's in the last bit; verify/ shows which grid cells, if any, this flips.\n\nNot ported (unreachable from the app's button): findFeasibleCorners, sortPointsForPerimeter,\nlinspace2D, generatePointsAlongEdges. The nFS argument is accepted by MATLAB but unused.\n\nKnown difference from replication_code.m (5 Apr 2026, used for the paper's figures): that\nfile's generatePerturbedTestPoints does NOT clip test points to [-1,1]^2; the app does, and so\ndoes this port. verify/ measures whether the clip ever changes an answer.\n\nNotation: the MATLAB code (and so this port) writes every moral weight with its indices\ntransposed relative to the paper. The paper's w_ij (how much player i cares about player j's\nvalue judgment) is the code's w_ji: player 1's payoff here is u1 + w11*alpha1 + w21*alpha2.\nThe values agree with the paper's formulas (verify/check_notation.py); only the names differ.\n\nNo dependencies beyond the Python standard library (so it also runs in a browser via Pyodide).\n\"\"\"\n\nimport math\nfrom fractions import Fraction\n\n__version__ = \"1.0\"\n\nNAN = float(\"nan\")\nINF = math.inf\nOUTCOME_CODES = {1: \"(A,A)\", 2: \"(A,B)\", 4: \"(B,A)\", 8: \"(B,B)\"}\n\n\n# =============================================================================\n# MATLAB primitives\n# =============================================================================\ndef matlab_linspace(d1, d2, n):\n    \"\"\"MATLAB R2025a linspace.m, line for line (numpy's formula differs in the last bit).\"\"\"\n    n = math.floor(float(n))\n    if n <= 0:\n        return []\n    n1 = n - 1\n    d1 = float(d1)\n    d2 = float(d2)\n    if d1 == -d2 and n > 2:\n        step = d2 / n1\n        y = [k * step for k in range(-n1, n1 + 1, 2)]\n        y[0] = d1\n        y[-1] = d2\n        if n1 % 2 == 0:\n            y[n1 // 2] = 0.0\n        return y\n    if n1 == 0:  # MATLAB: 0/0 = NaN, then y(1) = d2\n        return [d2]\n    c = (d2 - d1) * (n1 - 1)\n    if math.isinf(c):\n        if math.isinf(d2 - d1):\n            y = [d1 + (d2 / n1) * k - (d1 / n1) * k for k in range(n1 + 1)]\n        else:\n            y = [d1 + k * ((d2 - d1) / n1) for k in range(n1 + 1)]\n    else:\n        y = [d1 + (k * (d2 - d1)) / n1 for k in range(n1 + 1)]\n    if d1 == d2:\n        y = [d1] * len(y)\n    else:\n        y[0] = d1\n        y[-1] = d2\n    return y\n\n\ndef matlab_pow2(x):\n    \"\"\"MATLAB 2^x for a double scalar (overflow gives Inf, as in MATLAB).\"\"\"\n    try:\n        return 2.0 ** x\n    except OverflowError:\n        return INF\n\n\ndef matlab_norm2(x, y):\n    \"\"\"MATLAB norm([x; y]): the scaled BLAS dnrm2 formula.\n\n    Matches MATLAB R2025a bit-for-bit on 3999 of 4000 probe vectors (math.hypot: 2636/4000).\n    \"\"\"\n    s = max(abs(x), abs(y))\n    if s == 0:\n        return 0.0\n    return s * math.sqrt((x / s) ** 2 + (y / s) ** 2)\n\n\ndef unique_rows(points):\n    \"\"\"MATLAB unique(P','rows')': lexicographically sorted, duplicates removed.\"\"\"\n    out = []\n    for p in sorted(points):\n        if not out or out[-1] != p:\n            out.append(p)\n    return out\n\n\nclass DegenerateHull(Exception):\n    \"\"\"MATLAB:convhull:EmptyConvhull2DErrId (all points collinear).\"\"\"\n\n\ndef _orient(a, b, c):\n    \"\"\"Sign of the orientation of (a, b, c), exact (Shewchuk filter, then rational arithmetic).\"\"\"\n    detleft = (a[0] - c[0]) * (b[1] - c[1])\n    detright = (a[1] - c[1]) * (b[0] - c[0])\n    det = detleft - detright\n    errbound = 3.3306690738754716e-16 * (abs(detleft) + abs(detright))\n    if det > errbound:\n        return 1\n    if -det > errbound:\n        return -1\n    F = Fraction\n    d = (F(a[0]) - F(c[0])) * (F(b[1]) - F(c[1])) - (F(a[1]) - F(c[1])) * (F(b[0]) - F(c[0]))\n    return (d > 0) - (d < 0)\n\n\ndef matlab_convhull_points(points):\n    \"\"\"The SET of points MATLAB's convhull(x,y) returns (default 'Simplify' false).\n\n    MATLAB returns every input point on the hull boundary, including points lying on an edge,\n    and raises if all points are collinear. Only the set matters here: the caller passes the\n    result through unique(), which discards the hull's ordering.\n    \"\"\"\n    pts = unique_rows(points)\n    lower = []\n    for p in pts:\n        while len(lower) >= 2 and _orient(lower[-2], lower[-1], p) <= 0:\n            lower.pop()\n        lower.append(p)\n    upper = []\n    for p in reversed(pts):\n        while len(upper) >= 2 and _orient(upper[-2], upper[-1], p) <= 0:\n            upper.pop()\n        upper.append(p)\n    hull = lower[:-1] + upper[:-1]\n    if len(hull) < 3:\n        raise DegenerateHull\n    edges = [(hull[i], hull[(i + 1) % len(hull)]) for i in range(len(hull))]\n    out = []\n    for p in pts:\n        for a, b in edges:\n            if (min(a[0], b[0]) <= p[0] <= max(a[0], b[0])\n                    and min(a[1], b[1]) <= p[1] <= max(a[1], b[1])\n                    and _orient(a, b, p) == 0):\n                out.append(p)\n                break\n    return out\n\n\ndef _finite(x, y):\n    return not (math.isnan(x) or math.isinf(x) or math.isnan(y) or math.isinf(y))\n\n\n# =============================================================================\n# findFeasibleCornersFullSpace  (moral_app_20260403.m lines 315-478)\n# =============================================================================\ndef find_feasible_corners_full_space(f1, d1, c2, d2, w11, w12, w21, w22, epsPert):\n    delta1_min, delta1_max = -1.0, 1.0\n    delta2_min, delta2_max = -1.0, 1.0\n    epsVal = 1e-10\n    cand = []\n\n    def add(x, y):\n        if _finite(x, y):\n            cand.append((x, y))\n\n    add(delta1_min, delta2_min)\n    add(delta1_min, delta2_max)\n    add(delta1_max, delta2_min)\n    add(delta1_max, delta2_max)\n    add(0.0, delta2_min)\n    add(0.0, delta2_max)\n    add(delta1_min, 0.0)\n    add(delta1_max, 0.0)\n    add(0.0, 0.0)\n    if abs(w21) > epsVal:\n        add(delta1_min, (f1 - d1 - w11 * delta1_min) / w21)\n        add(delta1_max, (f1 - d1 - w11 * delta1_max) / w21)\n    if abs(w22) > epsVal:\n        add(delta1_min, (d2 - c2 - w12 * delta1_min) / w22)\n        add(delta1_max, (d2 - c2 - w12 * delta1_max) / w22)\n    if abs(w11) > epsVal:\n        add((f1 - d1 - w21 * delta2_min) / w11, delta2_min)\n        add((f1 - d1 - w21 * delta2_max) / w11, delta2_max)\n    if abs(w12) > epsVal:\n        add((d2 - c2 - w22 * delta2_min) / w12, delta2_min)\n        add((d2 - c2 - w22 * delta2_max) / w12, delta2_max)\n    if abs(w21) > epsVal:\n        add(0.0, (f1 - d1 - w11 * 0) / w21)\n    if abs(w22) > epsVal:\n        add(0.0, (d2 - c2 - w12 * 0) / w22)\n    if abs(w11) > epsVal:\n        add((f1 - d1 - w21 * 0) / w11, 0.0)\n    if abs(w12) > epsVal:\n        add((d2 - c2 - w22 * 0) / w12, 0.0)\n    if abs(w21) > epsVal and abs(w22) > epsVal:\n        A = w22 * (-w11) - w21 * (-w12)\n        B = w22 * (f1 - d1) - w21 * (d2 - c2)\n        if abs(A) > epsVal:\n            delta1_int = B / A\n            delta2_int = (f1 - d1 - w11 * delta1_int) / w21\n            add(delta1_int, delta2_int)\n\n    if cand:\n        cand = unique_rows(cand)\n\n    feasible = []\n    for x_, y_ in cand:\n        inBox = (x_ >= delta1_min - epsVal and x_ <= delta1_max + epsVal\n                 and y_ >= delta2_min - epsVal and y_ <= delta2_max + epsVal)\n        if not inBox:\n            continue\n        lhsMin, lhsMax = -INF, INF\n        if abs(w21) > epsVal:\n            lhsMin = (f1 - d1 - w11 * x_) / w21\n        if abs(w22) > epsVal:\n            lhsMax = (d2 - c2 - w12 * x_) / w22\n        if y_ >= lhsMin - epsVal and y_ <= lhsMax + epsVal:\n            feasible.append((x_, y_))\n\n    if not feasible:\n        return []\n\n    quadrants = ((-1.0, 0.0, -1.0, 0.0), (-1.0, 0.0, 0.0, 1.0),\n                 (0.0, 1.0, -1.0, 0.0), (0.0, 1.0, 0.0, 1.0))\n    allTest = []\n    for q1min, q1max, q2min, q2max in quadrants:\n        qc = [(x_, y_) for x_, y_ in feasible\n              if x_ >= q1min - epsVal and x_ <= q1max + epsVal\n              and y_ >= q2min - epsVal and y_ <= q2max + epsVal]\n        if len(qc) < 3:\n            allTest.extend(qc)\n            continue\n        try:\n            allTest.extend(matlab_convhull_points(qc))\n        except DegenerateHull:  # MATLAB: catch -> hullCorners = qCorners\n            allTest.extend(qc)\n\n    if allTest:\n        allTest = unique_rows(allTest)\n    if allTest and epsPert > 0:\n        allTest = generate_perturbed_test_points(allTest, epsPert, epsVal)\n    return allTest\n\n\n# =============================================================================\n# generatePerturbedTestPoints  (lines 487-598)\n# NB: hullCorners arrives lexicographically sorted (unique() above), so \"previous\" and\n# \"next\" corner mean neighbours in that sorted order. Replicated as is.\n# =============================================================================\ndef generate_perturbed_test_points(hullCorners, epsPert, epsVal):\n    n = len(hullCorners)\n    if n < 2:\n        return list(hullCorners)\n    tp = []\n    for i in range(n):\n        cx, cy = hullCorners[i]\n        px, py = hullCorners[(i - 1) % n]\n        nx, ny = hullCorners[(i + 1) % n]\n        tp.append((cx, cy))\n\n        dpx, dpy = px - cx, py - cy\n        normPrev = matlab_norm2(dpx, dpy)\n        if normPrev > epsVal:\n            tp.append((cx + (epsPert * dpx) / normPrev, cy + (epsPert * dpy) / normPrev))\n        dnx, dny = nx - cx, ny - cy\n        normNext = matlab_norm2(dnx, dny)\n        if normNext > epsVal:\n            tp.append((cx + (epsPert * dnx) / normNext, cy + (epsPert * dny) / normNext))\n\n        onD1 = abs(cx) < epsVal\n        onD2 = abs(cy) < epsVal\n        if onD1 and onD2:\n            continue\n        elif onD1:\n            tp.append((cx + -epsPert, cy + 0.0))\n            tp.append((cx + epsPert, cy + 0.0))\n        elif onD2:\n            tp.append((cx + 0.0, cy + -epsPert))\n            tp.append((cx + 0.0, cy + epsPert))\n\n        ex, ey = cx, cy          # edge_i\n        fx, fy = nx, ny          # edge_j\n        if (ex < -epsVal and fx > epsVal) or (ex > epsVal and fx < -epsVal):\n            t = -ex / (fx - ex)\n            kx = ex + t * (fx - ex)\n            ky = ey + t * (fy - ey)\n            if abs(kx) > epsVal:\n                kx = 0.0\n            tp.append((kx, ky))\n            # both branches of MATLAB's \"if crossPoint(2) > 0\" are identical\n            if ex < 0:\n                tp.append((kx + -epsPert, ky + 0.0))\n            else:\n                tp.append((kx + epsPert, ky + 0.0))\n            ax, ay = fx - ex, fy - ey\n            normEdge = matlab_norm2(ax, ay)\n            if normEdge > epsVal:\n                tp.append((kx + (epsPert * ax) / normEdge, ky + (epsPert * ay) / normEdge))\n                tp.append((kx - (epsPert * ax) / normEdge, ky - (epsPert * ay) / normEdge))\n\n        if (ey < -epsVal and fy > epsVal) or (ey > epsVal and fy < -epsVal):\n            t = -ey / (fy - ey)\n            kx = ex + t * (fx - ex)\n            ky = ey + t * (fy - ey)\n            if abs(ky) > epsVal:\n                ky = 0.0\n            tp.append((kx, ky))\n            if ey < 0:\n                tp.append((kx + 0.0, ky + -epsPert))\n            else:\n                tp.append((kx + 0.0, ky + epsPert))\n            ax, ay = fx - ex, fy - ey\n            normEdge = matlab_norm2(ax, ay)\n            if normEdge > epsVal:\n                tp.append((kx + (epsPert * ax) / normEdge, ky + (epsPert * ay) / normEdge))\n                tp.append((kx - (epsPert * ax) / normEdge, ky - (epsPert * ay) / normEdge))\n\n    # clip to [-1,1]^2 (app only; replication_code.m omits this) and unique\n    tp = [(max(-1.0, min(1.0, x)), max(-1.0, min(1.0, y))) for x, y in tp]\n    return unique_rows(tp)\n\n\n# =============================================================================\n# getBoundsForCDEF and helpers  (lines 729-913)\n# =============================================================================\ndef _single_ineq_to_interval(A, B):\n    \"\"\"singleIneq2Interval: solve A + B*x >= 0.\"\"\"\n    if abs(B) < 1e-14:\n        if A >= 0:\n            return -INF, INF\n        return INF, -INF\n    bound = -A / B\n    if B > 0:\n        return bound, INF\n    return -INF, bound\n\n\ndef _interval(A1, B1, A2, B2):\n    \"\"\"getIntervalForFreeDelta1 / getIntervalForFreeDelta2 (identical code).\"\"\"\n    low1, high1 = _single_ineq_to_interval(A1, B1)\n    low2, high2 = _single_ineq_to_interval(A2, B2)\n    lowVal = max(low1, low2)\n    highVal = min(high1, high2)\n    if lowVal > highVal:\n        return NAN, NAN\n    return lowVal, highVal\n\n\ndef get_bounds_for_cdef(c1, d1, e1, f1, c2, d2, e2, f2, w11, w12, w21, w22, index, deltaFixed):\n    if index == 1:\n        k = deltaFixed[1]\n        cl, ch = _interval((c1 - e1) + w21 * k, w11, (c2 - d2) + w22 * k, w12)\n        dl, dh = _interval((d1 - f1) + w21 * k, w11, (d2 - c2) - w22 * k, -w12)\n        el, eh = _interval((e1 - c1) - w21 * k, -w11, (e2 - f2) + w22 * k, w12)\n        fl, fh = _interval((f1 - d1) - w21 * k, -w11, (f2 - e2) - w22 * k, -w12)\n    elif index == 2:\n        k = deltaFixed[0]\n        cl, ch = _interval((c1 - e1) + w11 * k, w21, (c2 - d2) + w12 * k, w22)\n        dl, dh = _interval((d1 - f1) + w11 * k, w21, (d2 - c2) - w12 * k, w22)\n        el, eh = _interval((e1 - c1) - w11 * k, -w21, (e2 - f2) + w12 * k, w22)\n        fl, fh = _interval((f1 - d1) - w11 * k, -w21, (f2 - e2) - w12 * k, -w22)\n    else:\n        raise ValueError(\"index must be 1 or 2.\")\n    return (cl, ch, dl, dh, el, eh, fl, fh)\n\n\n# =============================================================================\n# getUtilGivenMoral  (lines 922-1011)\n# Returns (u1c, u1d, u1e, u1f, u2c, u2d, u2e, u2f); NaN where the outcome is not a subgame NE.\n# =============================================================================\ndef get_util_given_moral(c1, d1, e1, f1, c2, d2, e2, f2, w11, w12, w21, w22, delta):\n    delta1, delta2 = delta\n    NE_tol = 1e-10\n    cNE = (c1 - e1 + w11 * delta1 + w21 * delta2 >= -NE_tol and\n           c2 - d2 + w12 * delta1 + w22 * delta2 >= -NE_tol)\n    dNE = (d1 - f1 + w11 * delta1 + w21 * delta2 >= -NE_tol and\n           d2 - c2 - w12 * delta1 - w22 * delta2 >= -NE_tol)\n    eNE = (e1 - c1 - w11 * delta1 - w21 * delta2 >= -NE_tol and\n           e2 - f2 + w12 * delta1 + w22 * delta2 >= -NE_tol)\n    fNE = (f1 - d1 - w11 * delta1 - w21 * delta2 >= -NE_tol and\n           f2 - e2 - w12 * delta1 - w22 * delta2 >= -NE_tol)\n\n    if delta1 > 0:\n        alpha1, beta1 = 1.0, 1 - delta1\n    elif delta1 < 0:\n        alpha1, beta1 = 1 + delta1, 1.0\n    else:\n        alpha1, beta1 = 1.0, 1.0\n    if delta2 > 0:\n        alpha2, beta2 = 1.0, 1 - delta2\n    elif delta2 < 0:\n        alpha2, beta2 = 1 + delta2, 1.0\n    else:\n        alpha2, beta2 = 1.0, 1.0\n\n    u1c = u1d = u1e = u1f = u2c = u2d = u2e = u2f = NAN\n    if cNE:\n        u1c = c1 + w11 * alpha1 + w21 * alpha2\n        u2c = c2 + w12 * alpha1 + w22 * alpha2\n    if dNE:\n        u1d = d1 + w11 * alpha1 + w21 * alpha2\n        u2d = d2 + w12 * beta1 + w22 * beta2\n    if eNE:\n        u1e = e1 + w11 * beta1 + w21 * beta2\n        u2e = e2 + w12 * alpha1 + w22 * alpha2\n    if fNE:\n        u1f = f1 + w11 * beta1 + w21 * beta2\n        u2f = f2 + w12 * beta1 + w22 * beta2\n    return (u1c, u1d, u1e, u1f, u2c, u2d, u2e, u2f)\n\n\n# =============================================================================\n# possibleMoralDev  (lines 1018-1054)\n# =============================================================================\ndef possible_moral_dev(values):\n    res = []\n    for v in values:\n        if v >= -1 and v <= 1:\n            res.extend((v, v + 1e-8, v - 1e-8))\n    if not any(abs(r + 1) < 1e-8 for r in res):\n        res.append(-1.0)\n    if not any(abs(r - 1) < 1e-8 for r in res):\n        res.append(1.0)\n    out = []\n    for r in sorted(res):\n        if not out or out[-1] != r:\n            out.append(r)\n    return [r for r in out if r >= -1 and r <= 1]\n\n\n# =============================================================================\n# profDeviation  (lines 1061-1178)\n# outcome: 1=(A,A) 2=(A,B) 3=(B,A) 4=(B,B); player: 1 or 2\n# =============================================================================\ndef prof_deviation(c1, d1, e1, f1, c2, d2, e2, f2, w11, w12, w21, w22,\n                   outcome, moral, player, rtc):\n    g = (c1, d1, e1, f1, c2, d2, e2, f2, w11, w12, w21, w22)\n    row0 = 4 * (player - 1)\n    current = get_util_given_moral(*g, moral)[row0 + outcome - 1]\n    if math.isnan(current):\n        raise RuntimeError(\"current utility is NaN.\")\n    devs = possible_moral_dev(get_bounds_for_cdef(*g, player, moral))\n    other = moral[2 - player]\n    for dv in devs:\n        newDelta = (dv, other) if player == 1 else (other, dv)\n        row = get_util_given_moral(*g, newDelta)[row0:row0 + 4]\n        valid = [p for p in row if not math.isnan(p)]\n        if not valid:\n            return True  # empty subgame: treated as a profitable deviation\n        if rtc == 1 and not math.isnan(row[outcome - 1]):\n            worst = row[outcome - 1]\n        else:\n            worst = min(valid)\n        if worst > current + 2e-12:\n            return True\n    return False\n\n\n# =============================================================================\n# supportedOutcomes  (lines 1187-1333)\n# =============================================================================\ndef supported_outcomes(c1, d1, e1, f1, c2, d2, e2, f2, w11, w12, w21, w22, rtc):\n    g = (c1, d1, e1, f1, c2, d2, e2, f2, w11, w12, w21, w22)\n    ctrue = dtrue = etrue = ftrue = 0\n    if c1 - e1 + w11 + w21 >= 0 and c2 - d2 + w12 + w22 >= 0:\n        ctrue = 1\n    if f1 - d1 + w11 + w21 >= 0 and f2 - e2 + w12 + w22 >= 0:\n        ftrue = 1\n\n    epsPert = 1e-7\n    dtest = find_feasible_corners_full_space(f1, d1, c2, d2, w11, w12, w21, w22, epsPert)\n    etest = find_feasible_corners_full_space(f2, e2, c1, e1, w12, w11, w22, w21, epsPert)\n    if dtest:\n        dtrue = 1\n    if etest:\n        etrue = 1\n\n    if ctrue == 1:\n        for player in (1, 2):\n            if prof_deviation(*g, 1, (1.0, 1.0), player, rtc):\n                ctrue = 0\n                break\n    if ftrue == 1:\n        for player in (1, 2):\n            if prof_deviation(*g, 4, (-1.0, -1.0), player, rtc):\n                ftrue = 0\n                break\n\n    for flag, tests, outcome in ((\"d\", dtest, 2), (\"e\", etest, 3)):\n        if not tests:\n            continue\n        found = False\n        for pt in tests:\n            u = get_util_given_moral(*g, pt)\n            if math.isnan(u[outcome - 1]) or math.isnan(u[4 + outcome - 1]):\n                continue\n            if (not prof_deviation(*g, outcome, pt, 1, rtc)\n                    and not prof_deviation(*g, outcome, pt, 2, rtc)):\n                found = True\n                break\n        if not found:\n            if flag == \"d\":\n                dtrue = 0\n            else:\n                etrue = 0\n    return ctrue, dtrue, etrue, ftrue\n\n\n# =============================================================================\n# generateWeights  (lines 1345-1367)\n# =============================================================================\ndef generate_weights(W, Ine, Ind):\n    return weights_from_exp(W, matlab_pow2(Ine), matlab_pow2(Ind))\n\n\ndef weights_from_exp(W, expIne, expInd):\n    \"\"\"The rest of generateWeights, given 2^Ine and 2^Ind (lets verify/ inject MATLAB's 2^x).\"\"\"\n    w11 = W * (expIne / (expIne + 1)) * (expInd / (expInd + 1))\n    w12 = W * (expIne / (expIne + 1)) * (1 / (expInd + 1))\n    w21 = W * (1 / (expIne + 1)) * (1 / (expInd + 1))\n    w22 = W * (1 / (expIne + 1)) * (expInd / (expInd + 1))\n    return w11, w12, w21, w22\n\n\n# =============================================================================\n# weightOutcomes for one W, as the app calls it  (lines 1376-1432, app lines 97-115)\n# =============================================================================\ndef compute_grid(payoffs, W, ine_range=(-5.0, 5.0), ind_range=(-5.0, 5.0),\n                 n_ine=100, n_ind=100, rtc=False, progress=None, pow_override=None):\n    \"\"\"Return (Inevec, Indvec, codes) with codes[iIne][iInd] in 0..15.\n\n    payoffs: (u1(A,A), u2(A,A), u1(A,B), u2(A,B), u1(B,A), u2(B,A), u1(B,B), u2(B,B)),\n             the order of the app's input boxes, i.e. (c1, c2, d1, d2, e1, e2, f1, f2).\n    code = 1*(A,A) + 2*(A,B) + 4*(B,A) + 8*(B,B) for the outcomes supported at that point.\n    pow_override: (list of 2^Ine, list of 2^Ind) to use instead of computing 2^x (verification).\n    \"\"\"\n    c1, c2, d1, d2, e1, e2, f1, f2 = (float(v) for v in payoffs)\n    Inevec = matlab_linspace(ine_range[0], ine_range[1], n_ine)\n    Indvec = matlab_linspace(ind_range[0], ind_range[1], n_ind)\n    if pow_override:\n        powIne, powInd = pow_override\n    else:\n        powIne = [matlab_pow2(x) for x in Inevec]\n        powInd = [matlab_pow2(x) for x in Indvec]\n    rtc = 1 if rtc else 0\n    W = float(W)\n    codes = []\n    for i, Ine in enumerate(Inevec):\n        row = []\n        for j, Ind in enumerate(Indvec):\n            w11, w12, w21, w22 = weights_from_exp(W, powIne[i], powInd[j])\n            ct, dt, et, ft = supported_outcomes(c1, d1, e1, f1, c2, d2, e2, f2,\n                                                w11, w12, w21, w22, rtc)\n            row.append(1 * ct + 2 * dt + 4 * et + 8 * ft)\n        codes.append(row)\n        if progress:\n            progress(i + 1, len(Inevec))\n    return Inevec, Indvec, codes\n\n\ndef describe_code(code):\n    \"\"\"'9' -> '(A,A) + (B,B)'; 0 -> 'none'.\"\"\"\n    parts = [name for bit, name in OUTCOME_CODES.items() if code & bit]\n    return \" + \".join(parts) if parts else \"none\"\n\n\n# The app's 16-colour map (plot2DHeatmapsSeparate), code k -> colour k.\nCOLORS = [\n    (0.9, 0.9, 0.9), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0),\n    (1.0, 1.0, 0.0), (1.0, 0.0, 1.0), (0.0, 1.0, 1.0), (0.5, 0.5, 0.5),\n    (0.8, 0.5, 0.2), (1.0, 0.5, 0.0), (0.6, 0.0, 0.8), (0.4, 0.8, 0.4),\n    (0.2, 0.6, 0.8), (0.8, 0.4, 0.2), (0.6, 0.2, 0.4), (0.2, 0.2, 0.2),\n]\n\n\n# =============================================================================\n# Command line\n# =============================================================================\ndef _main(argv=None):\n    import argparse\n    import time\n\n    ap = argparse.ArgumentParser(\n        description=\"Moral Calculator: supported subgame outcomes on an \"\n                    \"(inequality, individualism) grid for a 2x2 game.\")\n    ap.add_argument(\"--payoffs\", nargs=8, type=float, required=True,\n                    metavar=(\"u1AA\", \"u2AA\", \"u1AB\", \"u2AB\", \"u1BA\", \"u2BA\", \"u1BB\", \"u2BB\"))\n    ap.add_argument(\"--W\", type=float, default=3.0, help=\"total moral weight (default 3)\")\n    ap.add_argument(\"--ine\", nargs=2, type=float, default=(-5.0, 5.0), metavar=(\"LOW\", \"HIGH\"))\n    ap.add_argument(\"--ind\", nargs=2, type=float, default=(-5.0, 5.0), metavar=(\"LOW\", \"HIGH\"))\n    ap.add_argument(\"--n\", type=int, default=100, help=\"grid points per axis (default 100)\")\n    ap.add_argument(\"--rtc\", action=\"store_true\", help=\"RTC SPNE instead of SPNE\")\n    ap.add_argument(\"--csv\", help=\"write the code grid to this CSV\")\n    ap.add_argument(\"--png\", help=\"write the heatmap to this PNG (needs matplotlib)\")\n    a = ap.parse_args(argv)\n\n    t0 = time.time()\n    Inevec, Indvec, codes = compute_grid(a.payoffs, a.W, a.ine, a.ind, a.n, a.n, a.rtc)\n    counts = {}\n    for row in codes:\n        for v in row:\n            counts[v] = counts.get(v, 0) + 1\n    print(\"computed %dx%d grid in %.1f s\" % (len(Inevec), len(Indvec), time.time() - t0))\n    for v in sorted(counts):\n        print(\"  code %2d  %-34s %5d cells\" % (v, describe_code(v), counts[v]))\n\n    if a.csv:\n        with open(a.csv, \"w\") as fh:\n            fh.write(\"inequality,individualism,code,outcomes\\n\")\n            for i, x in enumerate(Inevec):\n                for j, y in enumerate(Indvec):\n                    fh.write(\"%.17g,%.17g,%d,%s\\n\" % (x, y, codes[i][j], describe_code(codes[i][j])))\n        print(\"wrote\", a.csv)\n    if a.png:\n        import matplotlib\n        matplotlib.use(\"Agg\")\n        import matplotlib.pyplot as plt\n        from matplotlib.colors import ListedColormap\n        from matplotlib.patches import Patch\n        grid = [[codes[i][j] for i in range(len(Inevec))] for j in range(len(Indvec))]\n        fig, ax = plt.subplots(figsize=(8, 6))\n        ax.imshow(grid, origin=\"lower\", cmap=ListedColormap(COLORS), vmin=-0.5, vmax=15.5,\n                  extent=(Inevec[0], Inevec[-1], Indvec[0], Indvec[-1]), aspect=\"auto\",\n                  interpolation=\"nearest\")\n        ax.set_xlabel(\"Inequality\")\n        ax.set_ylabel(\"Individualism\")\n        ax.set_title(\"Supported subgame outcomes, W = %g (%s)\" % (a.W, \"RTC SPNE\" if a.rtc else \"SPNE\"))\n        ax.legend(handles=[Patch(color=COLORS[v], label=\"%d: %s\" % (v, describe_code(v)))\n                           for v in sorted(counts)],\n                  loc=\"upper left\", bbox_to_anchor=(1.01, 1), fontsize=9, frameon=False)\n        fig.tight_layout()\n        fig.savefig(a.png, dpi=150)\n        print(\"wrote\", a.png)\n\n\nif __name__ == \"__main__\":\n    _main()\n"</script>
+<script type="application/json" id="presets">[{"label": "Indifference", "W": 3, "payoffs": [0, 0, 0, 0, 0, 0, 0, 0]}, {"label": "Private goods, similar preference", "W": 3, "payoffs": [1, 1, 1, 0, 0, 1, 0, 0]}, {"label": "Private goods, similar preference", "W": 6, "payoffs": [1, 1, 1, 0, 0, 1, 0, 0]}, {"label": "Private goods, different preference", "W": 3, "payoffs": [1, 0, 1, 1, 0, 0, 0, 1]}, {"label": "Private goods, different preference", "W": 6, "payoffs": [1, 0, 1, 1, 0, 0, 0, 1]}, {"label": "Feeding others", "W": 3, "payoffs": [1, 1, 0, 1, 1, 0, 0, 0]}, {"label": "Feeding others", "W": 6, "payoffs": [1, 1, 0, 1, 1, 0, 0, 0]}, {"label": "Personal favor", "W": 3, "payoffs": [2, 0, 1, 1, 2, 0, 1, 1]}, {"label": "Personal favor", "W": 6, "payoffs": [2, 0, 1, 1, 2, 0, 1, 1]}, {"label": "Prisoner's dilemma", "W": 2, "payoffs": [2, 2, 0, 3, 3, 0, 1, 1]}, {"label": "Prisoner's dilemma", "W": 4, "payoffs": [2, 2, 0, 3, 3, 0, 1, 1]}, {"label": "Prisoner's dilemma", "W": 6, "payoffs": [2, 2, 0, 3, 3, 0, 1, 1]}, {"label": "Inverse prisoner's dilemma", "W": 3, "payoffs": [0, 3, 2, 2, 1, 1, 3, 0]}, {"label": "Inverse prisoner's dilemma", "W": 7, "payoffs": [0, 3, 2, 2, 1, 1, 3, 0]}, {"label": "Coordination", "W": 3, "payoffs": [3, 3, 0, 0, 0, 0, 1, 1]}, {"label": "Coordination", "W": 8, "payoffs": [3, 3, 0, 0, 0, 0, 1, 1]}, {"label": "Inverse coordination", "W": 3, "payoffs": [0, 0, 3, 3, 1, 1, 0, 0]}, {"label": "Inverse coordination", "W": 8, "payoffs": [0, 0, 3, 3, 1, 1, 0, 0]}, {"label": "Stag hunt", "W": 5, "payoffs": [10, 10, 1, 8, 8, 1, 5, 5]}, {"label": "Stag hunt", "W": 10, "payoffs": [10, 10, 1, 8, 8, 1, 5, 5]}, {"label": "Inverse stag hunt", "W": 5, "payoffs": [1, 8, 10, 10, 5, 5, 8, 1]}, {"label": "Inverse stag hunt", "W": 10, "payoffs": [1, 8, 10, 10, 5, 5, 8, 1]}, {"label": "Chicken", "W": 3, "payoffs": [0, 0, -1, 1, 1, -1, -10, -10]}, {"label": "Chicken", "W": 8, "payoffs": [0, 0, -1, 1, 1, -1, -10, -10]}, {"label": "Inverse chicken", "W": 3, "payoffs": [-1, 1, 0, 0, -10, -10, 1, -1]}, {"label": "Inverse chicken", "W": 8, "payoffs": [-1, 1, 0, 0, -10, -10, 1, -1]}, {"label": "Battle of the sexes", "W": 3, "payoffs": [3, 2, 0, 0, 0, 0, 2, 3]}, {"label": "Battle of the sexes", "W": 8, "payoffs": [3, 2, 0, 0, 0, 0, 2, 3]}, {"label": "Inverse battle of the sexes", "W": 3, "payoffs": [0, 0, 3, 2, 2, 3, 0, 0]}, {"label": "Inverse battle of the sexes", "W": 8, "payoffs": [0, 0, 3, 2, 2, 3, 0, 0]}, {"label": "Zero-sum", "W": 3, "payoffs": [1, -1, -1, 1, -1, 1, 1, -1]}, {"label": "Zero-sum", "W": 20, "payoffs": [1, -1, -1, 1, -1, 1, 1, -1]}]</script>
+<script>
+(function () {
+  "use strict";
+  const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.29.5/full/";
+  const COLORS = [[0.9,0.9,0.9],[1,0,0],[0,1,0],[0,0,1],[1,1,0],[1,0,1],[0,1,1],[0.5,0.5,0.5],
+    [0.8,0.5,0.2],[1,0.5,0],[0.6,0,0.8],[0.4,0.8,0.4],[0.2,0.6,0.8],[0.8,0.4,0.2],[0.6,0.2,0.4],[0.2,0.2,0.2]];
+  const rgb = (k) => "rgb(" + COLORS[k].map((v) => Math.round(v * 255)).join(",") + ")";
+  const NAMES = [[1, "(A,A)"], [2, "(A,B)"], [4, "(B,A)"], [8, "(B,B)"]];
+  const describe = (k) => { const p = NAMES.filter(([b]) => k & b).map(([, s]) => s); return p.length ? p.join(" and ") : "none"; };
+  const $ = (id) => document.getElementById(id);
+  const ids = ["c1", "c2", "d1", "d2", "e1", "e2", "f1", "f2"];
+
+  // ---------- presets ----------
+  const presets = JSON.parse($("presets").textContent);
+  presets.forEach((g, i) => {
+    const o = document.createElement("option");
+    o.value = String(i); o.textContent = g.label + ", W = " + g.W;
+    $("preset").appendChild(o);
+  });
+  $("preset").addEventListener("change", () => {
+    const g = presets[+$("preset").value];
+    if (!g) return;
+    ids.forEach((id, k) => { $(id).value = g.payoffs[k]; });
+    $("W").value = g.W;
+  });
+  [...ids, "W"].forEach((id) => $(id).addEventListener("input", () => { $("preset").value = ""; }));
+
+  // ---------- worker running Pyodide + moral_calc.py ----------
+  const engineSrc = JSON.parse($("engine-src").textContent);
+  const workerCode = `
+    importScripts("${PYODIDE}pyodide.js");
+    let py = null;
+    self.onmessage = async (e) => {
+      const m = e.data;
+      try {
+        if (m.type === "init") {
+          py = await loadPyodide({ indexURL: "${PYODIDE}" });
+          py.FS.writeFile("/home/pyodide/moral_calc.py", m.src);
+          py.runPython("import sys; sys.path.insert(0, '/home/pyodide'); import moral_calc");
+          postMessage({ type: "ready", pyver: py.runPython("import sys; sys.version.split()[0]") });
+        } else if (m.type === "run") {
+          const t0 = performance.now();
+          py.globals.set("args_json", JSON.stringify(m.args));
+          py.globals.set("progress_js", (i, n) => postMessage({ type: "progress", i: i, n: n }));
+          const out = py.runPython(
+            "import json, moral_calc\\n" +
+            "a = json.loads(args_json)\\n" +
+            "ine, ind, codes = moral_calc.compute_grid(a['payoffs'], a['W'], a['ine'], a['ind'], a['n'], a['n'], a['rtc'], progress=progress_js)\\n" +
+            "json.dumps({'ine': ine, 'ind': ind, 'codes': codes})");
+          postMessage({ type: "result", data: JSON.parse(out), ms: performance.now() - t0 });
+        }
+      } catch (err) {
+        postMessage({ type: "error", msg: String(err && err.message || err) });
+      }
+    };`;
+  const worker = new Worker(URL.createObjectURL(new Blob([workerCode], { type: "text/javascript" })));
+  let ready = false, busy = false, last = null, lastArgs = null, onResult = null;
+
+  function setStatus(msg, isErr) { $("status").textContent = msg; $("status").classList.toggle("err", !!isErr); }
+
+  worker.onmessage = (e) => {
+    const m = e.data;
+    if (m.type === "ready") {
+      ready = true; $("go").disabled = false; $("go").textContent = "Compute";
+      $("pyver").textContent = "(Python " + m.pyver + ")";
+      setStatus("Ready.");
+      if (onReady) onReady();
+    } else if (m.type === "progress") {
+      $("prog").max = m.n; $("prog").value = m.i;
+      setStatus("Computing… row " + m.i + " of " + m.n);
+    } else if (m.type === "result") {
+      busy = false; $("go").disabled = false; $("prog").hidden = true;
+      last = m.data;
+      setStatus("Done in " + (m.ms / 1000).toFixed(1) + " s (" + last.ine.length + " × " + last.ind.length + " points).");
+      draw(); legend(); $("png").disabled = false; $("csv").disabled = false;
+      if (onResult) onResult(m);
+    } else if (m.type === "error") {
+      busy = false; $("go").disabled = !ready; $("prog").hidden = true;
+      setStatus("Error: " + m.msg, true);
+    }
+  };
+  worker.onerror = (e) => setStatus("Could not start the Python engine: " + (e.message || "network error") +
+    ". It needs internet access the first time.", true);
+  worker.postMessage({ type: "init", src: engineSrc });
+
+  // ---------- inputs ----------
+  function readArgs() {
+    const num = (id) => { const v = parseFloat($(id).value); if (!Number.isFinite(v)) throw new Error("Enter a number in every box."); return v; };
+    const payoffs = ids.map(num);
+    const W = num("W"), ine = [num("inelo"), num("inehi")], ind = [num("indlo"), num("indhi")];
+    if (ine[0] > ine[1] || ind[0] > ind[1]) throw new Error("Each range must run from low to high.");
+    if ([...ine, ...ind].some((v) => Math.abs(v) > 100)) throw new Error("Keep the ranges within −100 to 100.");
+    return { payoffs, W, ine, ind, n: parseInt($("n").value, 10),
+             rtc: +document.querySelector("input[name=eq]:checked").value };
+  }
+  function run() {
+    if (!ready || busy) return;
+    let args;
+    try { args = readArgs(); } catch (err) { setStatus(err.message, true); return; }
+    busy = true; lastArgs = args; $("go").disabled = true; $("prog").hidden = false; $("prog").value = 0;
+    setStatus("Computing…");
+    worker.postMessage({ type: "run", args });
+  }
+  $("go").addEventListener("click", run);
+
+  // ---------- plot ----------
+  const canvas = $("plot");
+  const M = { l: 62, r: 14, t: 34, b: 50 };
+  function niceTicks(lo, hi, k) {
+    if (hi <= lo) return [lo];
+    const raw = (hi - lo) / k, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map((s) => s * mag).find((s) => s >= raw);
+    const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9 * step; v += step) out.push(+v.toFixed(10));
+    return out;
+  }
+  function extent(v) {
+    const d = v.length > 1 ? (v[v.length - 1] - v[0]) / (v.length - 1) : 1;
+    const h = (d === 0 ? 1 : d) / 2;
+    return [v[0] - h, v[v.length - 1] + h];
+  }
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  function drawFigure(ctx, W, H, opt) {
+    const fg = opt.fg, muted = opt.muted;
+    ctx.fillStyle = opt.bg; ctx.fillRect(0, 0, W, H);
+    const pw = W - M.l - M.r - (opt.legendW || 0), ph = H - M.t - M.b;
+    const ex = extent(last.ine), ey = extent(last.ind);
+    const nx = last.ine.length, ny = last.ind.length;
+    const cw = pw / nx, ch = ph / ny;
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+      ctx.fillStyle = rgb(last.codes[i][j]);
+      ctx.fillRect(M.l + i * cw, M.t + ph - (j + 1) * ch, Math.ceil(cw) + 0.5, Math.ceil(ch) + 0.5);
+    }
+    ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.strokeRect(M.l + 0.5, M.t + 0.5, pw, ph);
+    ctx.fillStyle = fg; ctx.font = "13px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    niceTicks(ex[0], ex[1], 6).forEach((v) => {
+      const x = M.l + (v - ex[0]) / (ex[1] - ex[0] || 1) * pw;
+      ctx.fillRect(x, M.t + ph, 1, 5); ctx.fillText(String(v), x, M.t + ph + 8);
+    });
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    niceTicks(ey[0], ey[1], 6).forEach((v) => {
+      const y = M.t + ph - (v - ey[0]) / (ey[1] - ey[0] || 1) * ph;
+      ctx.fillRect(M.l - 5, y, 5, 1); ctx.fillText(String(v), M.l - 8, y);
+    });
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.font = "14px system-ui, sans-serif";
+    ctx.fillText("Inequality", M.l + pw / 2, H - 10);
+    ctx.save(); ctx.translate(16, M.t + ph / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("Individualism", 0, 0); ctx.restore();
+    ctx.font = "600 15px system-ui, sans-serif";
+    ctx.fillText("Supported outcomes, W = " + lastArgs.W + " (" + (lastArgs.rtc ? "RTC SPNE" : "SPNE") + ")", M.l + pw / 2, 22);
+    if (opt.legendW) {
+      const counts = tally();
+      let y = M.t + 6; ctx.textAlign = "left"; ctx.font = "13px system-ui, sans-serif";
+      Object.keys(counts).map(Number).sort((a, b) => a - b).forEach((k) => {
+        ctx.fillStyle = rgb(k); ctx.fillRect(W - opt.legendW, y, 14, 14);
+        ctx.fillStyle = fg; ctx.fillText(describe(k), W - opt.legendW + 22, y + 11); y += 22;
+      });
+    }
+    return { pw, ph, ex, ey, nx, ny };
+  }
+  let geom = null;
+  function draw() {
+    $("empty").hidden = true;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth, h = Math.round(w * 0.72);
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); canvas.style.height = h + "px";
+    const ctx = canvas.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    geom = drawFigure(ctx, w, h, { bg: cssVar("--plot-bg"), fg: cssVar("--fg"), muted: cssVar("--muted") });
+  }
+  function tally() {
+    const c = {}; last.codes.forEach((r) => r.forEach((k) => { c[k] = (c[k] || 0) + 1; })); return c;
+  }
+  function legend() {
+    const c = tally(), total = last.ine.length * last.ind.length, ul = $("legend");
+    ul.innerHTML = "";
+    Object.keys(c).map(Number).sort((a, b) => a - b).forEach((k) => {
+      const li = document.createElement("li");
+      li.innerHTML = '<span class="sw" style="background:' + rgb(k) + '"></span><span>' + describe(k) +
+        '</span><span class="share">' + (100 * c[k] / total).toFixed(1) + "% of points</span>";
+      ul.appendChild(li);
+    });
+  }
+  const s = (x) => { const e = Math.pow(2, x); return e / (e + 1); };
+  canvas.addEventListener("pointermove", (ev) => {
+    if (!last || !geom) return;
+    const r = canvas.getBoundingClientRect(), x = ev.clientX - r.left - M.l, y = ev.clientY - r.top - M.t;
+    const i = Math.floor(x / (geom.pw / geom.nx)), j = geom.ny - 1 - Math.floor(y / (geom.ph / geom.ny));
+    if (i < 0 || j < 0 || i >= geom.nx || j >= geom.ny) { $("readout").textContent = "Hover over the plot to read a point."; return; }
+    const ine = last.ine[i], ind = last.ind[j], k = last.codes[i][j];
+    $("readout").innerHTML = "Inequality <b>" + ine.toFixed(3) + "</b>, individualism <b>" + ind.toFixed(3) +
+      "</b>: <b>" + describe(k) + "</b><br>Player 1's share of projecting moral weight " + (100 * s(ine)).toFixed(1) +
+      "%; share of all weight on own judgments " + (100 * s(ind)).toFixed(1) + "%.";
+  });
+  window.addEventListener("resize", () => { if (last) draw(); });
+
+  // ---------- downloads ----------
+  function save(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
+  function stem() { return "moral_W" + lastArgs.W + (lastArgs.rtc ? "_rtc" : "_spne"); }
+  $("png").addEventListener("click", () => {
+    const c = document.createElement("canvas"), W = 1400, H = 900; c.width = W; c.height = H;
+    drawFigure(c.getContext("2d"), W, H, { bg: "#ffffff", fg: "#1b1b1b", muted: "#5c5c5c", legendW: 230 });
+    c.toBlob((b) => save(b, stem() + ".png"));
+  });
+  $("csv").addEventListener("click", () => {
+    const rows = ["inequality,individualism,code,outcomes"];
+    last.ine.forEach((x, i) => last.ind.forEach((y, j) => rows.push(x + "," + y + "," + last.codes[i][j] + "," + describe(last.codes[i][j]))));
+    save(new Blob([rows.join("\n") + "\n"], { type: "text/csv" }), stem() + ".csv");
+  });
+
+  // ---------- test hook: ?test=<preset index>&n=<points> computes and writes the result to #test-output ----------
+  const q = new URLSearchParams(location.search);
+  let onReady = null;
+  if (q.has("test")) {
+    onReady = () => {
+      $("preset").value = q.get("test"); $("preset").dispatchEvent(new Event("change"));
+      if (q.has("n")) { const o = document.createElement("option"); o.textContent = q.get("n"); $("n").appendChild(o); $("n").value = q.get("n"); }
+      if (q.get("rtc") === "1") document.querySelector("input[name=eq][value='1']").checked = true;
+      onResult = (m) => { $("test-output").textContent = JSON.stringify({ args: lastArgs, ms: m.ms, codes: last.codes }); };
+      run();
+    };
+  }
+  // ?testall=1 : every preset under SPNE and RTC SPNE, default grid; all results to #test-output
+  if (q.has("testall")) {
+    onReady = () => {
+      const jobs = [];
+      presets.forEach((g, i) => [0, 1].forEach((rtc) => jobs.push({ i, rtc })));
+      const results = [];
+      const next = () => {
+        if (!jobs.length) { $("test-output").textContent = JSON.stringify({ args: null, codes: [[0]], all: results }); return; }
+        const j = jobs.shift();
+        $("preset").value = String(j.i); $("preset").dispatchEvent(new Event("change"));
+        document.querySelector("input[name=eq][value='" + j.rtc + "']").checked = true;
+        onResult = (m) => { results.push({ preset: j.i, rtc: j.rtc, args: lastArgs, ms: m.ms, codes: last.codes }); next(); };
+        run();
+      };
+      next();
+    };
+  }
+})();
+</script>
+</body>
+</html>
