@@ -1,0 +1,3 @@
+# Original camera files: full resolution and GPS metadata. Publish only the processed photo.jpg.
+IMG_*.JPG
+IMG_*.jpg

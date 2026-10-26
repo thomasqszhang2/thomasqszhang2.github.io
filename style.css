@@ -19,3 +19,9 @@ details p { margin: 6px 0; font-size: .97rem; }
 .jel { color: var(--muted); font-size: .88rem; }
 footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
 ul { padding-left: 1.2em; }
+.intro { display: flex; align-items: center; gap: 28px; }
+.portrait { width: 160px; height: auto; border-radius: 6px; flex: none; }
+@media (max-width: 520px) {
+  .intro { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .portrait { width: 140px; }
+}
