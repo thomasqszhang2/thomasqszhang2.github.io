@@ -19,9 +19,17 @@ details p { margin: 6px 0; font-size: .97rem; }
 .jel { color: var(--muted); font-size: .88rem; }
 footer { margin-top: 48px; color: var(--muted); font-size: .85rem; }
 ul { padding-left: 1.2em; }
-.intro { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
-.portrait { width: 240px; height: auto; border-radius: 6px; flex: none; }
-@media (max-width: 600px) {
-  .intro { flex-direction: column-reverse; align-items: flex-start; gap: 16px; }
-  .portrait { width: 200px; }
+/* Two columns on wide screens: photo + name on the left, papers on the right (reading width ~720px). */
+main { max-width: 1160px; display: grid; grid-template-columns: 300px minmax(0, 720px);
+  gap: 72px; justify-content: center; align-items: start; padding: 56px 32px 64px; }
+.sidebar { position: sticky; top: 40px; }
+.portrait { width: 100%; height: auto; border-radius: 6px; display: block; margin-bottom: 20px; }
+.sidebar h1 { font-size: 2rem; line-height: 1.15; margin: 0 0 8px; }
+.sidebar .tagline { line-height: 1.45; }
+.sidebar .contact { margin-top: 10px; line-height: 1.7; }
+.content > section:first-child h2 { margin-top: 0; }
+@media (max-width: 900px) {
+  main { grid-template-columns: minmax(0, 1fr); gap: 8px; max-width: 720px; padding: 32px 16px 56px; }
+  .sidebar { position: static; }
+  .portrait { width: 260px; max-width: 100%; }
 }
